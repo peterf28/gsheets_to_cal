@@ -1,47 +1,11 @@
 """Takes a events from a google spreadsheet and creates calendar events for them
 https://medium.com/analytics-vidhya/how-to-read-and-write-data-to-google-spreadsheet-using-python-ebf54d51a72c"""
-import os
-import pickle
 import math
 
 import pandas as pd
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 
-
-def read_sheet(sh_id, sh_range):
-    """Get a dataframe of the contents of a google sheet from it's ID and range"""
-    scopes = ['https://www.googleapis.com/auth/spreadsheets']
-    creds = None
-    # Get credentials from pickle file
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # put creds from json into pickle file
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', scopes)
-            creds = flow.run_local_server(port=0)
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-
-    service = build('sheets', 'v4', credentials=creds)
-
-    # Call the Sheets API
-    sheet = service.spreadsheets()
-    result_input = sheet.values().get(spreadsheetId=sh_id, range=sh_range).execute()
-    values_input = result_input.get('values', [])
-
-    if not values_input:
-        print('No data found.')
-        return None
-    df = pd.DataFrame(values_input[1:], index=None, columns=values_input[0])
-    df["Date"] = pd.to_datetime(df["Date"])
-    return df
-
+from sheets_functions import read_sheet
+from cal_functions import check_event, create_event
 
 def get_weight(sess_type, perc, test_data):
     """
@@ -76,7 +40,8 @@ if __name__ == "__main__":
     plan_data = pd.read_pickle("plan_data")
     testing_data = pd.read_pickle("testing_data")
 
-    add_weight = get_weight("Finger", 70, testing_data)
-    print(plan_data)
-    print(testing_data)
-    print(f"{add_weight}kg")
+    create_event("22/1/21",7,"Floor Core",1)
+    # add_weight = get_weight("Finger", 70, testing_data)
+    # print(plan_data)
+    # print(testing_data)
+    # print(f"{add_weight}kg")
