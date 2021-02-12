@@ -33,8 +33,8 @@ def read_sheet(sh_id, sh_range):
     values_input = result_input.get('values', [])
 
     if not values_input:
-        print('No data found.')
+        print('No data found in sheet.')
         return None
     df = pd.DataFrame(values_input[1:], index=None, columns=values_input[0])
-    df["Date"] = pd.to_datetime(df["Date"])
+    df["Date"] = pd.to_datetime(df["Date"], dayfirst=True)
     return df
