@@ -1,13 +1,16 @@
 """Takes a events from a google spreadsheet and creates calendar events for them
 https://medium.com/analytics-vidhya/how-to-read-and-write-data-to-google-spreadsheet-using-python-ebf54d51a72c"""
+import datetime
 import math
+import re
 
 import pandas as pd
 
+from cal_functions import Calendar
 from sheets_functions import read_sheet
-from cal_functions import check_event, create_event
 
-def get_weight(sess_type, perc, test_data):
+
+def get_stats(test_data):
     """
     Takes session type, percentage and test record and returns the weight that has to be added or removed
     :param sess_type: "Finger" or "Pull up"
@@ -15,12 +18,25 @@ def get_weight(sess_type, perc, test_data):
     :param test_data: dataframe from google sheet "Testing"
     :return: weight to add or remove e.g. 13 (kg)
     """
-    filtered = test_data.loc[test_data["Session"] == sess_type]
-    maxrow = filtered["Date"].idxmax()
-    result = int(filtered.loc[maxrow, "Result"])
-    weight = int(filtered.loc[maxrow, "Weight"])
-    output = math.ceil((perc / 100) * result - weight)
-    return output
+    stat_dict = {}
+    for sess_type in ("Finger", "Pull up"):
+        filtered = test_data.loc[test_data["Session"] == sess_type]
+        maxrow = filtered["Date"].idxmax()
+        result = int(filtered.loc[maxrow, "Result"])
+        weight = int(filtered.loc[maxrow, "Weight"])
+        stat_dict[sess_type] = {"result": result, "weight": weight}
+
+    return stat_dict
+
+
+def check_weight(activity_string, stat_dict):
+    if "%" in activity_string:
+        perc = int(re.findall(r"(\d+?)%", activity_string)[0])
+        sess = "Pull up" if "Pull" in activity_string else "Finger"
+        add_weight = math.ceil((perc / 100) * stat_dict[sess]["result"] - stat_dict[sess]["weight"])
+        sign = '+' if add_weight > 0 else ''
+        activity_string += f" ({sign}{add_weight}kg)"
+    return activity_string
 
 
 def update_from_source():
@@ -39,9 +55,15 @@ if __name__ == "__main__":
 
     plan_data = pd.read_pickle("plan_data")
     testing_data = pd.read_pickle("testing_data")
+    test_stats = get_stats(testing_data)
+    cal = Calendar()
+    event_list = []
 
-    create_event("22/1/21",7,"Floor Core",1)
-    # add_weight = get_weight("Finger", 70, testing_data)
-    # print(plan_data)
-    # print(testing_data)
-    # print(f"{add_weight}kg")
+    plan_data["compiled"] = [list(filter(None, i)) for i in plan_data.iloc[:, 2:9].values]
+
+    for idx, row in plan_data.iterrows():
+        for activity in row["compiled"]:
+            activity = check_weight(activity, test_stats)
+            day = row["Date"].to_pydatetime()
+            if day.date() >= datetime.datetime.now().date():
+                cal.create_7am_reminder(day, activity)
